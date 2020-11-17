@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "reactClient",
-    "slug": "reactClient",
+    "name": "PasssengerApp",
+    "slug": "PassengerApp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
