@@ -86,6 +86,8 @@ export class Backend {
         this.myDepTime = [];
         this.myArrTime = [];
         this.myFlightDate = [];
+        this.myPassengerStatus=[];
+        this.myFlightStatus = [];
     }
 
     getMyArrayLength() {
