@@ -9,7 +9,7 @@ export class MyContracts {
         " event newFlightIssued(string _from, string _to, uint _status)"
     ];
 
-    flightToken_ADDR = "0x997fA064833E7522f7CBE133c3a35cAe9ba0e8AE";
+    flightToken_ADDR = "0xFc46539eb3394870d363Cb65BBE5478710F4f021";
     flightToken_ABI = [
         // functions
         "function totalSupply() public view returns(uint256)",
@@ -24,30 +24,47 @@ export class MyContracts {
         "function _burn(address account, uint256 amount)",
         "function _burnFrom(address account, uint256 amount)",
         "function paymentHandlerCancelled(address cust, uint price)",
-        "function paymentHandlerDelayed(address cust, uint dist)"
+        "function paymentHandlerDelayed(address cust, uint dist)",
+        "function insertPayment(string _amount, address addr, string timestamp)",
+        "function searchPayments(uint length) public view returns(string memory, address[] memory, address[] memory, string memory)",
+
+        // events
+        "event PaymentRefunded(address from, address to, uint amount)",
+        "event DelayRefunded(address from, address to, uint amount)",
+        "event NewPaymentInsert(uint amount, address from, address to, uint timestamp)"
     ];
 
-    inventory_ADDR = "0x6382d590557eC0Dce0C268cbda20e1C0C9dcEaBD";
+    inventory_ADDR = "0x5ea9441d227CD83e9c98EEA571E94F5bdda1dED9";
     inventory_ABI = [
         // functions
         "function createInventory(string memory cid, string memory flightNumber, uint month, uint day, uint seats )",
         "function searchInventory(string memory flightNumber, uint month, uint day) public view returns(uint, uint, string)",
+        "function searchFlights(uint month, uint day) public view returns(string)",
         "function flightBooked(uint index) public returns (bool)",
-        "function compareStrings (string memory cmp1, string memory cmp2) private pure returns(bool)"
+        "function flightTicketCancelled(string memory flightNo, uint month, uint day) public",
+        "function compareStrings (string memory cmp1, string memory cmp2) private pure returns(bool)",
+
+        // events
+        "event FlightBooked(string flightNumber, uint month, uint day)",
+        "event InventoryCreated(string flightNumber, uint month, uint day)"
     ];
 
-    pss_ADDR = "0x546E58eC1CeC1C0Ace2d461aDBeD7EF821A05785";
+    pss_ADDR = "0x6b130A3a87973Da21DE3E9f0fc14fD983A26Cbad";
     pss_ABI = [
         "function createTicket(string memory cid, string memory flightNumber, uint month, uint day, uint256 price) public returns(bool)",
         "function changeFlightStatus(string memory flightNumber, uint month, uint day, uint _status) public returns(bool, uint)",
+        "function getFlightStatus(string memory flightNumber, uint month, uint day) public view returns(string) ",
+        "function getPassengerStatus(address addr, string memory flightNumber, uint month, uint day) public view returns(string) ",
         "function getPassengerList(string memory flightNumber, uint month, uint day) public view returns(address[] memory)",
         "function getTickets() public view returns(string)",
-        "function changePassengerStatus(uint _status, string memory flightNumber) public view returns(bool) ",
+        "function changePassengerStatus(uint _status, string memory flightNumber, uint month, uint day) public returns(bool) ",
+        "function getTicketPrice(address addr, string memory flightNumber, uint month, uint day) public view returns(uint)",
         "function compareStrings (string memory cmp1, string memory cmp2) private pure returns(bool)",
         "function concatStrings(string[] memory cids)",
 
         // events
          "event TicketIssued(address customer, string flightNumber, uint month, uint day)",
+         "event TicketCancelled(address customer, uint price)",
          "event FlightCreated(string flightNumber, uint month, uint day)",
          "event FlightStatusChanged(string flightNumber, uint month, uint day, uint status)",
          "event PassengerStatusChanged(address customer, string flightNumber, uint month, uint day, uint status)"

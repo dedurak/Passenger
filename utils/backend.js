@@ -29,6 +29,10 @@ export class Backend {
     myDepTime = [];
     myArrTime = [];
     myFlightDate = [];
+    myPassengerStatus = [];
+    myFlightStatus = [];
+    myPrice = [];
+    myPriceTaxes = [];
     detailsIndex = 0;
 
     setMyFlight(param) { this.myFlights.push(param)}
@@ -58,8 +62,20 @@ export class Backend {
     setMyFlightDate(param) { this.myFlightDate.push(param)}
     getMyFlightDate(param) { return this.myFlightDate[param]}
 
+    setMyPassengerStatus(param) { this.myPassengerStatus.push(param)}
+    getMyPassengerStatus(param) { return this.myPassengerStatus[param]}
+
+    setMyFlightStatus(param) { this.myFlightStatus.push(param)}
+    getMyFlightStatus(param) { return this.myFlightStatus[param]}
+
+    setMyPrice(param) { this.myPrice.push(param)}
+    getMyPrice(param) { return this.myPrice[param]}
+
+    setMyPriceTaxes(param) { this.myPriceTaxes.push(param)}
+    getMyPriceTaxes(param) { return this.myPriceTaxes[param]}
+
     setDetailsIndex(param) { this.detailsIndex=param }
-    getDetailsIndex(param) { return this.detailsIndex }
+    getDetailsIndex() { return this.detailsIndex }
 
     cleanMyValues() {
         this.myFlights = [];
@@ -70,6 +86,8 @@ export class Backend {
         this.myDepTime = [];
         this.myArrTime = [];
         this.myFlightDate = [];
+        this.myPassengerStatus=[];
+        this.myFlightStatus = [];
     }
 
     getMyArrayLength() {
