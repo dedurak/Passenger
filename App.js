@@ -45,6 +45,7 @@ const _styles = new MyStyles();
 const _walletUtils = new WalletUtiils();
 const funcContracts = new Contracts();
 var signer;
+var dataToDisplayAsList = [];
 var _walletMethods;
 var pickedAirports = {
   pickedDep: '',
@@ -234,7 +235,7 @@ const MainMenuScreen = ({ navigation }) => {
 
       // get Passenger Status and save inside backend array;
       await funcContracts.getPssInstance().getPassengerStatus(
-        mBackend.getMyFlight(i), date.getMonth()+1, date.getDate())
+        _walletUtils.getAddress(), mBackend.getMyFlight(i), date.getMonth()+1, date.getDate())
         .then(res => {
           console.log("Result PassengerStatus: ", res, "typeof: ", typeof(res));
           console.log("what the fuck: ", parseInt(res, 10));
@@ -254,6 +255,47 @@ const MainMenuScreen = ({ navigation }) => {
 
     navigation.navigate("My Flights");
   }
+
+  // search for last transactions
+  const searchPayments = () => {
+    dataToDisplayAsList = [];
+    funcContracts.getFlightToken().searchPayments(10)
+      .then(res => handlePaymentSearchResult(res));
+  }
+
+  // 2nd step - handle payment search result
+  const handlePaymentSearchResult = (res) => {
+
+    console.log("Result: ", res);
+    var amount = res[0].split("_");
+    var sender = res[1];
+    var recipient = res[2];
+    var timestamp = res[3].split("_");
+
+    var iterator = amount.length;
+
+    for (var i = 0; i<iterator; i++) {
+      var buf = {
+        _amount: amount[i],
+        _sender: sender[i],
+        _recipient: recipient[i],
+        _timestamp: timestamp[i]
+      }
+
+      dataToDisplayAsList.push(buf);
+    }
+
+    console.log("dataToShow: ", dataToDisplayAsList);
+
+    getTotalSupply();
+  }
+
+  // get total amount of tokens
+  const getTotalSupply = () => {
+    funcContracts.getFlightToken().balanceOf(_walletUtils.getAddress())
+      .then(res => {console.log("res: ", res); tokens = res; navigation.navigate("Token Portal")})
+  }
+
 
   return (
     <ScrollView style={{ marginTop:60}}>
@@ -326,7 +368,7 @@ const MainMenuScreen = ({ navigation }) => {
 
         <TouchableOpacity 
           style={{width: 350, height:70, backgroundColor: "blue", marginBottom: 20, alignItems: "center"}}
-          onPress={() => navigation.navigate("Token Portal")}>
+          onPress={() => searchPayments()}>
           <MaterialCommunityIcons name="coin" size={30} color="white" style={{marginTop: 5}}/>
           <Text style={{color:"#fff", fontSize: 16, textAlign: "center", margin: 10}}>Token Portal</Text>
         </TouchableOpacity>
@@ -569,6 +611,17 @@ const DetailsScreeen = ({ navigation }) => {
       .catch(err => console.log("Error at Inventory: ", err))
   }
 
+  // checking in
+  const checkin = () => {
+    var cDate = new Date(mBackend.getMyFlightDate(index));
+
+    funcContracts.getPssInstance().changePassengerStatus(1, mBackend.getMyFlight(index), cDate.getMonth()+1, cDate.getDate())
+      .then(res => {
+        console.log("You are checked in! ", res);
+      })
+      .catch(err => console.log("Error: ", err));
+  }
+
 
   return (
     <ScrollView>
@@ -593,15 +646,20 @@ const DetailsScreeen = ({ navigation }) => {
           <Text style={{ fontWeight: "bold", margin: 5, color: colors[flightstate]}}>{flightStatusText[flightstate]}</Text>
           
           {(flightstate==0 && passengerState!=5)?
-          <TouchableOpacity style={{marginTop:5, width:150, height:40, borderWidth: 1, borderColor: "red", backgroundColor: "blue", alignItems: "center"}}
+          <TouchableOpacity style={{marginTop:5, width:150, 
+            height:40, borderWidth: 1, borderColor: "red", 
+            backgroundColor: "blue", alignItems: "center"}}
             onPress={() => {
               setCancelTicketDialog(true);
               cancelTicket();}}>
             <Text style={{color: "white"}}>CANCEL FLIGHT</Text>
           </TouchableOpacity>:null}
           
-          {(flightstate==2 && passengerState!=1)?<TouchableOpacity style={{margin: 5, paddingLeft: 50}}>
-            <Text>CHECKIN</Text>
+          {(flightstate==2 && passengerState!=1)?<TouchableOpacity style={{marginTop:5, width:150, 
+            height:40, borderWidth: 1, borderColor: "red", 
+            backgroundColor: "green", alignItems: "center"}}
+            onPress= {() => checkin()}>
+            <Text style={{color: "white"}}>CHECKIN</Text>
           </TouchableOpacity>:null}
         </View>
 
@@ -761,8 +819,19 @@ const BookingScreen = ({ navigation }) => {
     const payTicket = async () => {
       await funcContracts.getFlightToken().transfer(airLineAddress, price)
         .then(res => {console.log("Ticket is paid: ", res);
-      
-        navigation.navigate("FLY Portal")}) // if payment is done - book the flight
+          const timeNow = Date.now();
+          insertPayment(price, timeNow);
+      })
+    }
+
+    // insert Payment into Payments
+    const insertPayment = async (amount, timestamp) => {
+      await funcContracts.getFlightToken().insertPayment(amount.toString(), airLineAddress, timestamp.toString())
+        .then(res => {
+          console.log("Payment inserted ", res);
+
+          navigation.navigate("Book a flight"); // if payment is done - book the flight
+        })
     }
   }
 
@@ -826,36 +895,7 @@ const TokenPortal = () => {
 
   const [ claimDialog, setClaimDialog ] = useState(false);
   var tokens = 0;
-  var dataToDisplayAsList = [];
 
-  // search for last transactions
-  const searchPayments = () => {
-    funcContracts.getFlightToken().searchPayments()
-      .then(res => handlePaymentSearchResult(res));
-  }
-
-  // 2nd step - handle payment search result
-  const handlePaymentSearchResult = (res) => {
-    var amount = res[0].split("_");
-    var sender = res[1];
-    var recipient = res[2];
-    var timestamp = res[3].split("_");
-
-    var iterator = amount.length;
-
-    for (var i = 0; i<iterator; i++) {
-      var buf = {
-        _amount: amount[i],
-        _sender: sender[i],
-        _recipient: recipient[i],
-        _timestamp: timestamp[i]
-      }
-
-      dataToDisplayAsList.push(buf);
-    }
-  }
-
-  searchPayments();
 
   // mint new tokens
   const claimTokens = () => {
@@ -864,31 +904,30 @@ const TokenPortal = () => {
       .catch(err => {console.log("Error: ", err);  alert(err)});
   }
 
-  // get total amount of tokens
-  const getTotalSupply = () => {
-    funcContracts.getFlightToken().balanceOf(_walletUtils.getAddress())
-      .then(res => {console.log("res: ", res); tokens = res})
-  }
-
-  //before rendering the screen get Balance
-  getTotalSupply();
-
   const itemView = ({item}) => {
 
-    var date = new Date(item.timestamp);
+    var date = new Date(parseInt(item._timestamp));
+    var minutes = 0;
+    if(date.getMinutes()<10) {
+      minutes = "0" + date.getMinutes();
+    }
+    else {
+      minutes = date.getMinutes();
+    }
+    var textDate = date.getDate() + "." + (date.getMonth()+1) + "." + date.getFullYear() + " " + date.getHours() + ":" + minutes;
 
     return (
-      <View>
-        <Text>{item.amount}</Text>
-        <Text>From: {item.sender}</Text>
-        <Text>To: {item.recipient}</Text>
-        <Text>Time: {date}</Text>
+      <View style={{borderColor: "blue", borderWidth: 1, flex: 1, flexDirection: "column", margin: 5}}>
+        <Text>{item._amount}</Text>
+        <Text>From: {item._sender}</Text>
+        <Text>To: {item._recipient}</Text>
+        <Text>Time: {textDate}</Text>
       </View>
     )
   }
 
   return (
-    <ScrollView>
+    <ScrollView style={{marginTop: 40}}>
           <View style={_styles.styles.containerFlightScreen}>
               <Text style={{ fontSize: 16, color: "blue"}}>Balance: {tokens} FLY</Text>
               <SafeAreaView style={{width: 400, height: 400}}>
@@ -903,7 +942,7 @@ const TokenPortal = () => {
                 onPress={() => {
                     claimTokens();
                   }}>
-                <Text style={{fontSize: 14}}>Buy Tokens</Text>
+                <Text style={{fontSize: 14, color: "white", marginTop: 20}}>Buy Tokens</Text>
               </TouchableOpacity>
 
               <Dialog visible={claimDialog}
