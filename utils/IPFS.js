@@ -1,5 +1,11 @@
 import 'ipfs-mini';
 
+/**
+ * 
+ * @author https://github.com/kauri-io/kauri-fullstack-dapp-tutorial-series/blob/master/truffle-react-box-frontend/client/src/utils/IPFS.js
+ * 
+ */
+
 const IPFS = require('ipfs-mini');
 
 const ipfs = new IPFS({
