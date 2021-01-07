@@ -73,7 +73,7 @@ const Tab = createMaterialBottomTabNavigator();
 const hexToDec = (hex) => {
   var result = parseInt(hex, 16);
   console.log("Result token, ", result);
-  setToken(result);
+  state.tokens = result;
 }
 
 const DepPicker = () => {
@@ -303,7 +303,7 @@ const MainMenuScreen = ({ navigation }) => {
   // get total amount of tokens
   const getTotalSupply = () => {
     funcContracts.getFlightToken().balanceOf(_walletUtils.getAddress())
-      .then(res => {console.log("res: ", res); state.tokens = res; navigation.navigate("Token Portal")})
+      .then(res => {console.log("res: ", res); hexToDec(Object.values(res[0])); navigation.navigate("Token Portal")})
   }
 
 
