@@ -1,25 +1,59 @@
 import 'react-native-gesture-handler';
-import React, { useState } from 'react';
+import React, { useLayoutEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
-import { View, Text, TouchableOpacity, TextInput, Linking, SafeAreaView, FlatList } from 'react-native';
+import { 
+  View, 
+  Text, 
+  TouchableOpacity, 
+  TextInput, 
+  Linking, 
+  SafeAreaView, 
+  FlatList } from 'react-native';
 import '@ethersproject/shims';
 import { ethers } from 'ethers';
 import { ScrollView } from 'react-native-gesture-handler';
 import { Calendar } from 'react-native-calendars';
-import { MyStyles} from './styles/myStyles';
-import { Picker } from '@react-native-picker/picker';
-import { WalletUtiils, WalletMethods, Contracts } from './utils/walletUtils';
+import { 
+  MyStyles} from './styles/myStyles';
+import { 
+  WalletUtiils, 
+  WalletMethods, 
+  Contracts } from './utils/walletUtils';
 import { MyContracts } from './utils/myContracts';
 import { Backend } from './utils/backend';
 import { getJSON, setJSON } from './utils/IPFS';
-import { Dialog, DialogContent, DialogFooter, DialogButton } from 'react-native-popup-dialog';
-import { Entypo, MaterialCommunityIcons, FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogFooter, 
+  DialogButton} from 'react-native-popup-dialog';
+import { 
+  Entypo, 
+  MaterialCommunityIcons, 
+  FontAwesome5, 
+  Ionicons } from '@expo/vector-icons';
 import { useEffect } from 'react';
 import { BackHandler } from 'react-native';
 import { passengerStatus } from './utils/Status/passengerStatus';
 import { flightStatus } from './utils/Status/flightStatus';
+import { vars } from './utils/global';
+import { 
+  DepPicker,
+  ArrPicker,
+  getAirports
+} from './utils/Airports/airportpicker';
+import { ActivityIndicator } from 'react-native';
+import { materialcolors } from './styles/materialcolors';
+import {
+  useFonts,
+  ComicNeue_300Light,
+  ComicNeue_300Light_Italic,
+  ComicNeue_400Regular,
+  ComicNeue_400Regular_Italic,
+  ComicNeue_700Bold,
+  ComicNeue_700Bold_Italic,
+} from '@expo-google-fonts/comic-neue';
 
 
 /**
@@ -28,151 +62,101 @@ import { flightStatus } from './utils/Status/flightStatus';
  * the new business process automates all steps in relation to a flight booking
  */
 
-/**
- * GLOBAL VARS
- * @param projectID infura project id
- * @param airLineAddress the address of the airline (necessary for the payment)
- * @param provider the infura node required for communication with the blockchain
- * @param styles the css styles
- * @param _walletUtils all utils to create a wallet
- * @param flightToken contract instance of the token contract - necessary for payments
- * @param flightPlan contract instance for flight search contract
- * @param invContract instance to InventoryContract
- * @param pssInstance instance to PassengerSystem contract
- * @param signer represents the wallet
- * @param _walletMethods necessary for wallet creation
- * @param state the react state vars of this app
- * @param contracts access to the addr and abi of the contracts
- * @param StackBooking the stack of the flight booking screens
- * @param StackTickets the stack of the ticket details screens
- */
-
-const projectID = "0211650106d841af86d75c8707e6e87b";
-const airLineAddress = "0xf600CdC62b5259Ce70C9398406d4775c9306Fa37";
 const mBackend = new Backend();
-const provider = new ethers.providers.InfuraProvider("rinkeby", projectID);
+const provider = new ethers.providers.InfuraProvider("rinkeby", vars.projectID);
 const _styles = new MyStyles();
 const _walletUtils = new WalletUtiils();
 const funcContracts = new Contracts();
 var signer;
 var dataToDisplayAsList = [];
 var _walletMethods;
-const state = {
-  loggedin: false,
-  pickedDep: 'ADB',
-  pickedArr: 'ADB',
-  tokens: 0
-}
 const contracts = new MyContracts();
+const Stack = createStackNavigator();
 const StackBooking = createStackNavigator();
 const StackTickets = createStackNavigator();
-const Tab = createMaterialBottomTabNavigator();
 
 
 // to change the hex value from token contract to decimal number
 const hexToDec = (hex) => {
   var result = parseInt(hex, 16);
   console.log("Result token, ", result);
-  state.tokens = result;
-}
-
-const DepPicker = () => {
-  const [ airp, setAirp ] = useState("ADB");
-
-  return (
-    <View style={{borderWidth: 2, borderColor: "blue", height: 100, width: 180, alignItems: "center"}}>
-    <Picker
-      selectedValue={airp}
-      style={{height:80, width: 170}}
-      onValueChange={(itemVal, itemInd) => {
-        state.pickedDep=itemVal;
-        setAirp(itemVal);
-        console.log("Dep Airport: ", state.pickedDep)}}
-      mode="dropdown"
-      >
-      <Picker.Item label="Frankfurt am Main" value="FRA" />
-      <Picker.Item label="Izmir" value="ADB" />
-      <Picker.Item label="Zurich" value="ZRH" />
-      <Picker.Item label="Stuttgart" value="STR" />
-      <Picker.Item label="Munich" value="MUC" />
-    </Picker>
-  </View>
-  )
-}
-
-const ArrPicker = () => {
-  const [ airp, setAirp ] = useState("ADB");
-  return (
-    <View style={{borderWidth: 2, borderColor: "blue", height: 100, width: 180, alignItems: "center"}}>
-    <Picker
-      selectedValue={airp}
-      itemStyle={{fontSize: 20, color:"blue"}}
-      style={{height:80, width: 170}}
-      onValueChange={(itemVal, itemInd) => {
-        state.pickedArr=itemVal;
-        setAirp(itemVal);
-        console.log("Arr Airport: ", state.pickedArr);
-      }}
-      mode="dropdown">
-      <Picker.Item label="Frankfurt am Main" value="FRA" />
-      <Picker.Item label="Izmir" value="ADB" />
-      <Picker.Item label="Zurich" value="ZRH" />
-      <Picker.Item label="Stuttgart" value="STR" />
-      <Picker.Item label="Munich" value="MUC" />
-    </Picker>
-    </View>
-  )
+  vars.tokens = result;
 }
 
 
- // main menu
+// main menu -- startup screen
 const MainMenuScreen = ({ navigation }) => {
+
+  var [fontsLoaded] = useFonts({
+    ComicNeue_300Light,
+    ComicNeue_300Light_Italic,
+    ComicNeue_400Regular,
+    ComicNeue_400Regular_Italic,
+    ComicNeue_700Bold,
+    ComicNeue_700Bold_Italic
+  });
 
   const [loginDialog, setLoginDialog] = useState(false);
   const [loggingInDialog, setLoggingInDialog] = useState(false);
   const [alertDialog, setAlertDialog] = useState(false);
+  const [passphrase, setPassPhrase] = useState("");
   const bip39Url = "https://iancoleman.io/bip39/";
   const [ dialogText, setDialogText ] = useState("Logging in...");
 
+  // open link if bip39 button is pressed
   const openBip39Url = async () => {
     await Linking.openURL(bip39Url);
   }
 
+
+  // create wallet while login process
   const createWallet = () => { 
     _walletUtils.setParams();
     setDialogText("Wallet created...");
     setTimeout(() => {
-      _walletMethods = new WalletMethods(_walletUtils.getPrivateKey(), provider);
+      _walletMethods = new WalletMethods(
+        _walletUtils.getPrivateKey(), 
+        provider);
       signer = _walletMethods.getWallet();
-      state.loggedin = true;
+      vars.loggedin = true;
       setupContracts();
     }, 1000);
   }
 
+
+  // create contract instance while login process
   const setupContracts = () => {
 
     setDialogText("Creating Contracts...");
 
     setTimeout(() => {
-      funcContracts.setFlightToken(_walletMethods.createContractInstance(
-        contracts.getFlightTokenAddr(), 
-        contracts.getFlightTokenAbi(), 
-        signer));
+      funcContracts.setFlightToken(
+        _walletMethods.createContractInstance(
+          contracts.getFlightTokenAddr(), 
+          contracts.getFlightTokenAbi(), 
+          signer
+        ));
 
-      funcContracts.setFlightPlanContract(_walletMethods.createContractInstance(
-        contracts.getFlightPlanAddr(), 
-        contracts.getFlightPlanAbi(), 
-        signer));
+      funcContracts.setFlightPlanContract(
+        _walletMethods.createContractInstance(
+          contracts.getFlightPlanAddr(), 
+          contracts.getFlightPlanAbi(), 
+          signer
+        ));
 
-      funcContracts.setPssInstance(_walletMethods.createContractInstance(
-        contracts.getPssAddr(),
-        contracts.getPssAbi(),
-        signer));
+      funcContracts.setPssInstance(
+        _walletMethods.createContractInstance(
+          contracts.getPssAddr(),
+          contracts.getPssAbi(),
+          signer
+        ));
 
-      funcContracts.setInvContract(_walletMethods.createContractInstance(
-        contracts.getInventoryAddr(),
-        contracts.getInventoryAbi(),
-        signer));
+      funcContracts.setInvContract(
+        _walletMethods.createContractInstance(
+          contracts.getInventoryAddr(),
+          contracts.getInventoryAbi(),
+          signer
+        ));
     
       setLoggingInDialog(false);
       setDialogText("Logging out...");
@@ -184,11 +168,20 @@ const MainMenuScreen = ({ navigation }) => {
     }, 1000);
   }
 
+
+  // start searching for bookings
   const goTicket = () => {
     // first search all tickets booked with this address inside the passenger system
-    funcContracts.getPssInstance().getTickets().then( (res) => {console.log(res); if(res != "") handleTicketData(res)})
+    funcContracts.getPssInstance()
+    .getTickets()
+    .then( (res) => {
+      console.log(res); 
+      if(res != "") handleTicketData(res)
+    })
   }
 
+
+  // save data inside backend to display later
   const handleTicketData = async (result) => {
 
     mBackend.cleanMyValues();
@@ -233,10 +226,13 @@ const MainMenuScreen = ({ navigation }) => {
     getStatus();
   }
 
+
+  // get flight and ticket status
   const getStatus = async () => {
     // get count of tickets 
     const countTickets = mBackend.getMyArrayLength();
 
+    // iterate through all tickets and get flight and ticket status
     for (var i=0; i<countTickets.length; i++) {
       var date = new Date(mBackend.getMyFlightDate(i));
 
@@ -244,21 +240,31 @@ const MainMenuScreen = ({ navigation }) => {
       console.log("Date: ", date.getMonth()+1, "/", date.getDate());
 
       // get Passenger Status and save inside backend array;
-      await funcContracts.getPssInstance().getPassengerStatus(
-        _walletUtils.getAddress(), mBackend.getMyFlight(i), date.getMonth()+1, date.getDate())
+      await funcContracts.getPssInstance()
+        .getPassengerStatus(
+          _walletUtils.getAddress(), // wallet -> address
+          mBackend.getMyFlight(i),   // flightnumber to look for ticket status
+          date.getMonth()+1,         // month
+          date.getDate()             // day
+        )
         .then(res => {
           console.log("Result PassengerStatus: ", res, "typeof: ", typeof(res));
           console.log("what the fuck: ", parseInt(res, 10));
-          mBackend.setMyPassengerStatus(res);
+          mBackend.setMyPassengerStatus(res); // save passenger status
         });
       
-      await funcContracts.getPssInstance().getFlightStatus(
-        mBackend.getMyFlight(i), date.getMonth()+1, date.getDate())
+      await funcContracts.getPssInstance()
+        .getFlightStatus(
+          mBackend.getMyFlight(i), // flight looking for flight status
+          date.getMonth()+1,       // month
+          date.getDate()           // day
+        ) 
         .then(res => {
           console.log("FlightStatus: ", flightStatus[parseInt(res)]);
           mBackend.setMyFlightStatus(res);
         });
     }
+
 
     console.log("Passenger: ", mBackend.myPassengerStatus);
     console.log("Flight: ", mBackend.myFlightStatus);
@@ -266,10 +272,12 @@ const MainMenuScreen = ({ navigation }) => {
     navigation.navigate("My Flights");
   }
 
+
   // search for last transactions
   const searchPayments = () => {
     dataToDisplayAsList = [];
-    funcContracts.getFlightToken().searchPayments(10)
+    funcContracts.getFlightToken()
+      .searchPayments(10)
       .then(res => handlePaymentSearchResult(res));
   }
 
@@ -300,103 +308,156 @@ const MainMenuScreen = ({ navigation }) => {
     getTotalSupply();
   }
 
+
   // get total amount of tokens
   const getTotalSupply = () => {
-    funcContracts.getFlightToken().balanceOf(_walletUtils.getAddress())
-      .then(res => {console.log("res: ", res); hexToDec(Object.values(res[0])); navigation.navigate("Token Portal")})
+    funcContracts.getFlightToken()
+      .balanceOf(_walletUtils.getAddress())
+      .then(res => {
+        console.log("res: ", res); 
+        hexToDec(Object.values(res[0])); 
+        navigation.navigate("Token Portal");
+      })
   }
 
 
   return (
-    <ScrollView style={{ marginTop:60}}>
+    <ScrollView 
+      style={{
+        backgroundColor: materialcolors[2],
+        flex: 1
+      }}>
 
-      {!state.loggedin?<TouchableOpacity style={{backgroundColor: "green", width: 50, margin: 10, padding: 5, alignItems: "center", alignItems: "flex-start"}}
-          onPress= {() => {
-            setLoginDialog(true);
-          }}>
-            <Entypo name="login" size={24} color="white"/>
-            <Text style={{color:"white"}}>Login</Text>
-          </TouchableOpacity>:null}
+      {!vars.loggedin?
+      <TouchableOpacity 
+        style={_styles.styles.loginButton}
+        onPress= {() => {
+          setLoginDialog(true);
+        }}>
+        <Entypo name="login" size={24} color="white"/>
+        <Text style={{color:"white"}}>Login</Text>
+      </TouchableOpacity>
+      :null}
 
-      {state.loggedin?<TouchableOpacity style={{backgroundColor: "red", width: 60, margin: 10, padding: 5, alignItems: "center", alignItems: "flex-end"}}
-          onPress= {() => {
-            setLoggingInDialog(true);
+      {vars.loggedin?
+      <TouchableOpacity 
+        style={ _styles.styles.logoutButton }
+        onPress= {() => {
+          setLoggingInDialog(true);
 
-            setTimeout(() => {
-              console.log("inside logging out timeout")
-              signer = null; // set signer to null
-              _walletUtils.clearParams(); // delete all params
-              _walletMethods.clearParams(); // clear wallet o null
-              setDialogText("Logging in ...");
-              console.log("WalletParams: ", _walletMethods);
-              state.loggedin = false;
-              setLoggingInDialog(false);
-            }, 2000);
-          }}>
-            <Entypo name="log-out" size={24} color="white"/>
-            <Text style={{color: "white"}}>Logout</Text>
-          </TouchableOpacity>:null}
+          setTimeout(() => {
+            console.log("inside logging out timeout")
+            signer = null; // set signer to null
+            _walletUtils.clearParams(); // delete all params
+            _walletMethods.clearParams(); // clear wallet o null
+            setDialogText("Logging in ...");
+            setPassPhrase("");
+            console.log("WalletParams: ", _walletMethods);
+            vars.loggedin = false;
+            setLoggingInDialog(false);
+          }, 2000);
+        }}>
+        <Entypo name="log-out" size={24} color="red"/>
+        <Text style={{color: "red"}}>Logout</Text>
+      </TouchableOpacity>
+      :null}
 
-          <Dialog visible={loginDialog}
-              footer={
-                <DialogFooter>
-                  <DialogButton text="Cancel" onPress={() => setLoginDialog(false)}/>
-                  <DialogButton text="Login" onPress={() => { setLoginDialog(false); setLoggingInDialog(true); setTimeout(() => createWallet(), 1000);}}/>
-                </DialogFooter>
-              }>
-            <DialogContent>
-              <Text style={{ fontSize: 12, textAlign: "center", margin: 5, width: 300}}>
-                An mnemonic is a passphrase, that represents your digital wallet. This Wallet is necessary for any activities inside the app!
-                There is no further personal data necessary! The Wallet signs the transactions and proves that you are YOU!
-                Never lose your mnemonic and save it safely! Link to BIP39 creator: </Text>
-              <View style={{alignItems: "center"}}>
-              <TouchableOpacity style={{alignItems: "center", backgroundColor:"grey", fontSize: 14, fontStyle: "italic", width:50}} onPress={() => {openBip39Url()}}> 
-                <Text style={{color: "white", padding:2}}>BIP39</Text> 
-              </TouchableOpacity>
-              </View>
-              <Text style={{ fontSize: 15, textAlign: "center", marginTop: 45, color: "blue"}}>Enter your mnemonic:</Text>
-              <TextInput placeholder="passphrase" onChangeText={ (value) => {_walletUtils.setMnemonic(value);}} style={_styles.styles.textInputBox}/>
-            </DialogContent>
-          </Dialog>
-
-        <Dialog visible={loggingInDialog}>
-          <DialogContent>
-            <Text>{dialogText}</Text>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog visible={alertDialog}>
-          <DialogContent>
-            <Text>You are not logged in!</Text>
-          </DialogContent>
-          <DialogFooter>
-            <DialogButton text="OK" onPress={() => {setAlertDialog(false)}}/>
+      <Dialog visible={loginDialog}
+        footer={
+          <DialogFooter style={{backgroundColor: materialcolors[3]}}>
+            <DialogButton 
+              textStyle={{color: materialcolors[2]}}
+              text="Cancel" 
+              onPress={() => setLoginDialog(false)}/>
+            <DialogButton 
+              textStyle={{color: materialcolors[2]}}
+              text="Login" 
+              onPress={() => { 
+                setLoginDialog(false); 
+                setLoggingInDialog(true); 
+                setTimeout(() => createWallet(), 1000);}}/>
           </DialogFooter>
-        </Dialog>
+        }>
+        <DialogContent style={{backgroundColor: materialcolors[3]}}>
+          <Text style={ _styles.styles.bip39Text}> {vars.bip39Text} </Text>
+          <View style={{alignItems: "center"}}>
+            <TouchableOpacity 
+              style={ _styles.styles.bip39Button } 
+              onPress={() => {openBip39Url()}}> 
+              <Text style={{color: materialcolors[7], padding:2}}>BIP39</Text> 
+            </TouchableOpacity>
+          </View>
+          <Text 
+            style={ _styles.styles.passphraseText }>Enter your passphrase:</Text>
+          <TextInput
+            value={passphrase}
+            placeholder="passphrase" 
+            onChangeText={ (value) => {
+              setPassPhrase(value);
+              _walletUtils.setMnemonic(value);
+            }} 
+            style={_styles.styles.textInputBox}/>
+        </DialogContent>
+      </Dialog>
 
-        <View style={{alignItems: "center", marginTop: 100, marginBottom: 100}}>
+      <Dialog visible={loggingInDialog}>
+        <DialogContent 
+          style={{
+            backgroundColor: materialcolors[3]
+          }}>
+          <Text style={{color:materialcolors[2]}}>{dialogText}</Text>
+          <ActivityIndicator size="large" color={materialcolors[2]} />
+        </DialogContent>
+      </Dialog> 
+
+      <Dialog visible={alertDialog}>
+        <DialogContent
+          style={{
+            backgroundColor: materialcolors[3]
+          }}>
+          <Text style={{color: materialcolors[2], marginTop: 5}}>You are not logged in!</Text>
+        </DialogContent>
+        <DialogFooter style={{backgroundColor: materialcolors[3]}}>
+          <DialogButton 
+            textStyle={{color: materialcolors[2]}} 
+            text="OK" 
+            onPress={() => {setAlertDialog(false)}}/>
+        </DialogFooter>
+      </Dialog>
+
+      <View 
+        style={{
+          alignItems: "center", 
+          marginTop: 100, 
+          marginBottom: 100}}>
         <TouchableOpacity 
-          style={{width: 350, height:70, backgroundColor: "blue", marginBottom: 20, alignItems: "center"}}
-          onPress={ () => {state.loggedin ? navigation.navigate("Book and fly") : setAlertDialog(true)}}>
-          <FontAwesome5 name="plane-departure" size={25} color="white" style={{marginTop: 5}}/>
-          <Text style={{color:"#fff", fontSize: 16, textAlign: "center", margin: 10}}>Book a flight</Text>
+          style={ _styles.styles.menuButton }
+          onPress={ () => {
+            vars.loggedin ? navigation.navigate("Book and fly") : setAlertDialog(true)
+          }}>
+          <FontAwesome5 name="plane-departure" size={25} color={materialcolors[2]} style={{marginTop: 5}}/>
+          <Text style={ _styles.styles.menuText }>Book a flight</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
-          style={{width: 350, height:70, backgroundColor: "blue", marginBottom: 20, alignItems: "center"}}
-          onPress={() => {goTicket()}}>
-          <Ionicons name="md-person" size={30} color="white" style={{marginTop: 5}}/>
-          <Text style={{color:"#fff", fontSize: 16, textAlign: "center", margin: 10}}>My Flys</Text>
+          style={ _styles.styles.menuButton }
+          onPress={() => {
+            vars.loggedin ? goTicket() : setAlertDialog(true)
+          }}>
+          <Ionicons name="md-person" size={30} color={materialcolors[2]} style={{marginTop: 5}}/>
+          <Text style={ _styles.styles.menuText }>My Flys</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
-          style={{width: 350, height:70, backgroundColor: "blue", marginBottom: 20, alignItems: "center"}}
-          onPress={() => searchPayments()}>
-          <MaterialCommunityIcons name="coin" size={30} color="white" style={{marginTop: 5}}/>
-          <Text style={{color:"#fff", fontSize: 16, textAlign: "center", margin: 10}}>Token Portal</Text>
+          style={ _styles.styles.menuButton }
+          onPress={() => {
+            vars.loggedin ? searchPayments() : setAlertDialog(true)
+          }}>
+          <MaterialCommunityIcons name="coin" size={30} color={materialcolors[2]} style={{marginTop: 5}}/>
+          <Text style={ _styles.styles.menuText }>Token Portal</Text>
         </TouchableOpacity>
 
-        </View>
+      </View>
     </ScrollView>
   )
 }
@@ -404,10 +465,24 @@ const MainMenuScreen = ({ navigation }) => {
 // search for flights
 const BookAFlightScreen = ({ navigation }) => {
 
+  const [mDate, setMDate] = useState("");
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity 
+          style={{marginRight: 20}}
+          onPress={() => navigation.navigate('FLY Portal')}>
+          <Entypo name="home" size={24} color="white" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   const onChange = (value) => {
     console.log(value);
     mBackend.setDate(value);
+    setMDate(value.dateString);
     var date = new Date(value.dateString);
     if(date.getDay()  == 0) { mBackend.setDay(7); console.log("Logged 7")} 
     else { mBackend.setDay(date.getDay()) }
@@ -420,7 +495,7 @@ const BookAFlightScreen = ({ navigation }) => {
     console.log("flightplan: ", funcContracts.getFlightPlanContract());
 
     funcContracts.getFlightPlanContract()
-      .searchFlight(state.pickedDep, state.pickedArr)
+      .searchFlight(getAirports().pickedDep, getAirports().pickedArr)
       .then( (response) => {
         console.log(response);
         handleResult(response)
@@ -494,33 +569,52 @@ const BookAFlightScreen = ({ navigation }) => {
   }
 
   return (
-    <ScrollView style={{backgroundColor: "white", marginTop: 30}}>
-    <View style={_styles.styles.containerFlightScreen}>
+    <ScrollView style={{backgroundColor: materialcolors[0]}}>
+      <View style={_styles.styles.containerFlightScreen}>
 
-      <Text style={{fontSize: 20, fontWeight: "bold", color: "blue"}}>Book your flight</Text>
+        <Text style={_styles.styles.screenHeader}>Book your flight</Text>
 
-      <View style={{flex:1, flexDirection: "row"}}>
-        <View style={{flex:1, flexDirection: "column", margin: 10}}>
-          <Text style={_styles.styles.searchLabelText}>From</Text>
-          <DepPicker />
+        <View style={{flex:1, flexDirection: "row"}}>
+          <View style={{flex:1, flexDirection: "column", margin: 10}}>
+            <Text style={_styles.styles.searchLabelText}>From</Text>
+            <DepPicker />
+          </View>
+          <View style={{flex:1, flexDirection: "column", margin: 10}}>
+            <Text style={_styles.styles.searchLabelText}>To</Text>
+            <ArrPicker/>
+          </View>
         </View>
-        <View style={{flex:1, flexDirection: "column", margin: 10}}>
-          <Text style={_styles.styles.searchLabelText}>To</Text>
-          <ArrPicker/>
-        </View>
+      
+        <Calendar 
+          firstDay={1}
+          markedDates={{
+            [mDate]: {selected: true, selectedColor: materialcolors[2], selectedDayTextColor: materialcolors[7], marked: true}
+          }}
+          style={{backgroundColor: materialcolors[0]}}
+          theme={{ 
+            monthTextColor: "white",
+            selectedDayTextColor: "white", 
+            selectedDayBackgroundColor: materialcolors[7], 
+            todayTextColor: "red"}}
+          onDayPress={(dateObject) => {onChange(dateObject)}} 
+          enableSwipeMonths={true} />
+      
+        <TouchableOpacity
+          style={{
+            borderRadius: 40,
+            width: 200, 
+            height:40, 
+            margin:10, 
+            backgroundColor: materialcolors[2]}}
+          onPress={ () => getit() }>
+          <Text 
+          style={{
+            color:"#fff", 
+            fontSize: 15, 
+            textAlign: "center", 
+            margin: 10}}>Search Flights</Text> 
+        </TouchableOpacity>
       </View>
-
-      
-      <Calendar theme={{selectedDayTextColor: "green", selectedDayBackgroundColor: "blue", todayTextColor: "red"}}
-                onDayPress={(dateObject) => {onChange(dateObject)}} enableSwipeMonths={true} />
-      
-      <TouchableOpacity
-            style={{width: 200, height:40, margin:10, backgroundColor: '#000F64'}}
-            onPress={ () => getit() }>
-            <Text style={{color:"#fff", fontSize: 15, 
-                          textAlign: "center", margin: 10}}>Search Flights</Text> 
-      </TouchableOpacity>
-    </View>
     </ScrollView>
   );
 }
@@ -530,6 +624,18 @@ const BookAFlightScreen = ({ navigation }) => {
 const TicketPortalScreen = ({ navigation }) => {
   
   const array = mBackend.getMyArrayLength();
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity 
+          style={{marginRight: 20}}
+          onPress={() => navigation.navigate('FLY Portal')}>
+          <Entypo name="home" size={24} color="white" />
+        </TouchableOpacity>
+      ),
+    })
+  });  
 
   const gotoDetailsScreen = (ind) => {
     mBackend.setDetailsIndex(ind);
@@ -553,20 +659,28 @@ const TicketPortalScreen = ({ navigation }) => {
   return (
     <ScrollView>
       <View style={_styles.styles.containerFlightScreen}>
-        <Text style={{ color: "blue", fontSize: 20 }}>Your Tickets</Text>
-      {array.map((ind, key) => (
-        <TouchableOpacity style={{ width: 400, height: 200, flex:1, 
-                                  flexDirection: "column", backgroundColor: "white", borderColor: "blue", 
-                                  borderWidth: 2, margin: 10 }}
-                          onPress={ () => {gotoDetailsScreen(ind)} }>
-          <Text style={{ fontWeight: "bold", color: "blue", margin: 5, paddingLeft: 50}}>Flight {mBackend.getMyFlight(ind)} - STATUS {flightStatus[parseInt(mBackend.getMyFlightStatus(ind))]}</Text>
-          <Text style={{ color: "blue", margin: 5, paddingLeft: 50 }}>Passenger:  {mBackend.getMyName(ind)} {mBackend.getMySurname(ind)}</Text>
-          <Text style={{ color: "blue", margin: 5, paddingLeft: 50 }}>FROM {mBackend.getMyFrom(ind)} TO {mBackend.getMyTo(ind)}</Text>
-          <Text style={{ color: "blue", margin: 5, paddingLeft: 50 }}>DEP {mBackend.getMyDepTime(ind)} ARR {mBackend.getMyArrTime(ind)}</Text>
-          <Text style={{ color: "blue", margin: 5, paddingLeft: 50 }}>FLIGHTDATE {mBackend.getMyFlightDate(ind)}</Text>
-          <Text style={{ color: "blue", margin: 5, paddingLeft: 50 }}>STATUS OF TICKET {passengerStatus[parseInt(mBackend.getMyPassengerStatus(ind))]}</Text>
+        <Text style={_styles.styles.screenHeader}>Your Tickets</Text>
+        {array.map((ind, key) => (
+        <TouchableOpacity 
+          style={{ 
+            width: 400, 
+            height: 200, 
+            flex:1, 
+            flexDirection: "column", 
+            backgroundColor: "white",
+            borderRadius: 40, 
+            borderColor: materialcolors[3], 
+            borderWidth: 2, 
+            margin: 10 }}
+          onPress={ () => {gotoDetailsScreen(ind)} }>
+          <Text style={_styles.styles.ticketBoxHeader}>Flight {mBackend.getMyFlight(ind)} - STATUS {flightStatus[parseInt(mBackend.getMyFlightStatus(ind))]}</Text>
+          <Text style={_styles.styles.ticketBoxText}>Passenger:  {mBackend.getMyName(ind)} {mBackend.getMySurname(ind)}</Text>
+          <Text style={_styles.styles.ticketBoxText}>FROM {mBackend.getMyFrom(ind)} TO {mBackend.getMyTo(ind)}</Text>
+          <Text style={_styles.styles.ticketBoxText}>DEP {mBackend.getMyDepTime(ind)} ARR {mBackend.getMyArrTime(ind)}</Text>
+          <Text style={_styles.styles.ticketBoxText}>FLIGHTDATE {mBackend.getMyFlightDate(ind)}</Text>
+          <Text style={_styles.styles.ticketBoxText}>STATUS OF TICKET {passengerStatus[parseInt(mBackend.getMyPassengerStatus(ind))]}</Text>
         </TouchableOpacity>
-      ))}
+        ))}
       </View>
     </ScrollView>
   )
@@ -583,6 +697,18 @@ const DetailsScreeen = ({ navigation }) => {
   //const [ ticketCancelledDialog, setTicketCancelledDialog ] = useState(false);
   //const [ cancelButton, setCancelButton ] = useState(false);
   //const [ checkinButton, setCheckinButton ] = useState(false);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity 
+          style={{marginRight: 20}}
+          onPress={() => navigation.navigate('FLY Portal')}>
+          <Entypo name="home" size={24} color="white" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   var price = mBackend.getMyPrice(index);
   var taxes = mBackend.getMyPriceTaxes(index)*price;
@@ -620,17 +746,26 @@ const DetailsScreeen = ({ navigation }) => {
     console.log(typeof(cDate.getMonth()+1)), typeof(cDate.getDate());
     console.log("Month: ", cDate.getMonth()+1, " Day: ", cDate.getDate());
 
-    funcContracts.getPssInstance().changePassengerStatus(5, mBackend.getMyFlight(index), cDate.getMonth()+1, cDate.getDate())
+    funcContracts.getPssInstance()
+      .changePassengerStatus(
+        5, 
+        mBackend.getMyFlight(index), 
+        cDate.getMonth()+1, 
+        cDate.getDate())
       .then(res => {
         console.log("Ticket cancelled: ", res);
         changeInv(cDate.getMonth()+1, cDate.getDate());
-      })
+        })
       .catch(err => console.log("Error: ", err));
   }
 
   // update inventory
   const changeInv = (month, day) => {
-    funcContracts.getInvContract().flightTicketCancelled(mBackend.getMyFlight(index), month, day)
+    funcContracts.getInvContract()
+      .flightTicketCancelled(
+        mBackend.getMyFlight(index), 
+        month, 
+        day)
       .then(res => {
         console.log("Inventory updated: ", res);
         setCancelTicketDialog(false);
@@ -643,7 +778,12 @@ const DetailsScreeen = ({ navigation }) => {
   const checkin = () => {
     var cDate = new Date(mBackend.getMyFlightDate(index));
 
-    funcContracts.getPssInstance().changePassengerStatus(1, mBackend.getMyFlight(index), cDate.getMonth()+1, cDate.getDate())
+    funcContracts.getPssInstance()
+      .changePassengerStatus(
+        1, 
+        mBackend.getMyFlight(index), 
+        cDate.getMonth()+1, 
+        cDate.getDate())
       .then(res => {
         console.log("You are checked in! ", res);
       })
@@ -652,67 +792,94 @@ const DetailsScreeen = ({ navigation }) => {
 
 
   return (
-    <ScrollView>
+    <ScrollView style={{backgroundColor: materialcolors[0]}}>
       <View style={_styles.styles.containerFlightScreen}>
-        <Text style={{ fontWeight: "bold", fontSize: 20, color: "blue", margin: 5}}>Flight Details</Text>
-        <View style={{ width: 400, height: 120, borderColor: "blue", borderWidth: 2 }}>
-          <Text style={{ color: "blue", margin: 5, paddingLeft: 50}}>Flightnumber: {mBackend.getMyFlight(index)}, Date: {mBackend.getMyFlightDate(index)}</Text>
-          <Text style={{ color: "blue", margin: 5, paddingLeft: 50}}>From: {mBackend.getMyFrom(index)} To: {mBackend.getMyTo(index)}</Text>
-          <Text style={{ color: "blue", margin: 5, paddingLeft: 50}}>Departure Time: {mBackend.getMyDepTime(index)}</Text>
-          <Text style={{ color: "blue", margin: 5, paddingLeft: 50}}>Flightnumber: {mBackend.getMyArrTime(index)}</Text>
+        <Text style={_styles.styles.detailsScreenHeader}>Flight Details</Text>
+        <View style={_styles.styles.detailsScreenFirstBox}>
+          <Text style={_styles.styles.detailsScreenText}>Flightnumber: {mBackend.getMyFlight(index)}, Date: {mBackend.getMyFlightDate(index)}</Text>
+          <Text style={_styles.styles.detailsScreenText}>From: {mBackend.getMyFrom(index)} To: {mBackend.getMyTo(index)}</Text>
+          <Text style={_styles.styles.detailsScreenText}>Departure: {mBackend.getMyDepTime(index)}</Text>
+          <Text style={_styles.styles.detailsScreenText}>Arrival:   {mBackend.getMyArrTime(index)}</Text>
         </View>
 
-        <Text style={{ fontWeight: "bold", fontSize: 20, color: "blue", marginTop: 20, marginBottom:5}}>Passenger Details</Text>
-        <View style={{ width: 400, height: 100, borderColor: "blue", borderWidth: 2 }}>
-          <Text style={{ color: "blue", margin: 5, paddingLeft: 50}}>Name:: {mBackend.getMyName(index)}</Text>
-          <Text style={{ color: "blue", margin: 5, paddingLeft: 50}}>Surname: {mBackend.getMySurname(index)}</Text>
-          <Text style={{ color: "blue", margin: 5, paddingLeft: 50}}>Birthdate: {mBackend.getMyBdate(index)}</Text>
+        <Text style={_styles.styles.detailsScreenHeader}>Passenger Details</Text>
+        <View style={_styles.styles.detailsScreenFirstBox}>
+          <Text style={_styles.styles.detailsScreenText}>Name:: {mBackend.getMyName(index)}</Text>
+          <Text style={_styles.styles.detailsScreenText}>Surname: {mBackend.getMySurname(index)}</Text>
+          <Text style={_styles.styles.detailsScreenText}>Birthdate: {mBackend.getMyBdate(index)}</Text>
         </View>
 
-        <Text style={{ fontWeight: "bold", fontSize: 20, color: "blue", marginTop: 20, marginBottom:5}}>Flight Status</Text>
-        <View style={{ width: 400, height: 100, borderColor: "blue", borderWidth: 2 , alignItems: "center"}}>
-          <Text style={{ fontWeight: "bold", margin: 5, color: colors[flightstate]}}>{flightStatusText[flightstate]}</Text>
+        <Text style={_styles.styles.detailsScreenHeader}>Flight Status</Text>
+        <View 
+          style={{ 
+            width: 400, 
+            height: 100, 
+            backgroundColor: materialcolors[7],
+            borderColor: materialcolors[3], 
+            borderWidth: 2, 
+            alignItems: "center"}}>
+          <Text style={{ fontFamily: "ComicNeue_700Bold", margin: 5, color: colors[flightstate]}}>{flightStatusText[flightstate]}</Text>
           
           {(flightstate==0 && passengerState!=5)?
-          <TouchableOpacity style={{marginTop:5, width:150, 
-            height:40, borderWidth: 1, borderColor: "red", 
-            backgroundColor: "blue", alignItems: "center"}}
+          <TouchableOpacity 
+            style={{
+              marginTop:5, 
+              width:150, 
+              height:40, 
+              borderWidth: 1, 
+              borderColor: "red", 
+              backgroundColor: "blue", 
+              alignItems: "center"}}
             onPress={() => {
               setCancelTicketDialog(true);
               cancelTicket();}}>
             <Text style={{color: "white"}}>CANCEL FLIGHT</Text>
           </TouchableOpacity>:null}
           
-          {(flightstate==2 && passengerState!=1)?<TouchableOpacity style={{marginTop:5, width:150, 
-            height:40, borderWidth: 1, borderColor: "red", 
-            backgroundColor: "green", alignItems: "center"}}
+          {(flightstate==2 && passengerState!=1)?
+          <TouchableOpacity 
+            style={{
+              marginTop:5, 
+              width:150, 
+              height:40, 
+              borderWidth: 1, 
+              borderColor: "red", 
+              backgroundColor: "green", 
+              alignItems: "center"}}
             onPress= {() => checkin()}>
             <Text style={{color: "white"}}>CHECKIN</Text>
           </TouchableOpacity>:null}
         </View>
 
         <Dialog visible={cancelTicketDialog}>
-          <DialogContent>
-          <Text>{cancelDialog}</Text>
+          <DialogContent style={{backgroundColor: materialcolors[3]}}>
+            <Text style={{color: materialcolors[2]}}>{cancelDialog}</Text>
+            <ActivityIndicator size="large" color="white" />
           </DialogContent>
         </Dialog>
 
         <Dialog visible={cancelledConfirmation}
           footer={
-            <DialogFooter>
-              <DialogButton text="Confirm" onPress={() => {
-                setCancelledConfirmation(false);
-                navigation.navigate("FLY Portal");}}/>
+            <DialogFooter style={{backgroundColor: materialcolors[3]}}>
+              <DialogButton 
+                text="Confirm" 
+                textStyle={{color: materialcolors[2]}}
+                onPress={() => {
+                  setCancelledConfirmation(false);
+                  navigation.navigate("FLY Portal");
+                }}/>
             </DialogFooter>
           }>
-
+          <DialogContent style={{backgroundColor: materialcolors[3]}}>
+            <Text style={{color: materialcolors[2]}}>Ticket cancelled</Text>
+          </DialogContent>
         </Dialog>
 
-        <Text style={{ fontWeight: "bold", fontSize: 20, color: "blue", marginTop: 20, marginBottom:5}}>Price Details</Text>
-        <View style={{ width: 400, height: 100, borderColor: "blue", borderWidth: 2 }}>
-          <Text style={{color: "black", margin: 5, paddingLeft: 50}}>Ticket Price: {ticketPrice} FLY</Text>
-          <Text style={{color: "black", margin: 5, paddingLeft: 50}}>Taxes: {taxes} FLY</Text>
-          <Text style={{color: "black", margin: 5, paddingLeft: 50}}>TOTAL: {price} FLY</Text>
+        <Text style={_styles.styles.detailsScreenHeader}>Price Details</Text>
+        <View style={_styles.styles.detailsScreenFirstBox}>
+          <Text style={{color: materialcolors[2], margin: 5, paddingLeft: 50}}>Ticket Price: {ticketPrice} FLY</Text>
+          <Text style={{color: materialcolors[2], margin: 5, paddingLeft: 50}}>Taxes: {taxes} FLY</Text>
+          <Text style={{color: materialcolors[2], margin: 5, paddingLeft: 50}}>TOTAL: {price} FLY</Text>
         </View>
       </View>
     </ScrollView>
@@ -722,6 +889,18 @@ const DetailsScreeen = ({ navigation }) => {
 
 // show the results for bookable flights
 const FlightResultsScreen = ({ navigation }) => {
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity 
+          style={{marginRight: 20}}
+          onPress={() => navigation.navigate('FLY Portal')}>
+          <Entypo name="home" size={24} color="white" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   const array = mBackend.getQueryArr();
 
@@ -738,11 +917,13 @@ const FlightResultsScreen = ({ navigation }) => {
     console.log("day: ", mBackend.getDate().day);
 
     // 1) searchforInventory and check if there are seats available, if yes go to next page, otherwise show user an alert
-    funcContracts.getInvContract().searchInventory(mBackend.getSearchFlightNumber(ind),
-                                mBackend.getDate().month,
-                                mBackend.getDate().day)
-                .then(res => {console.log("RES INVsearch: ", res); handleResData(res[0], res[1], res[2])})
-                .catch(err => console.log("Error @inv: ", err));
+    funcContracts.getInvContract()
+      .searchInventory(
+        mBackend.getSearchFlightNumber(ind),
+        mBackend.getDate().month,
+        mBackend.getDate().day)
+      .then(res => {console.log("RES INVsearch: ", res); handleResData(res[0], res[1], res[2])})
+      .catch(err => console.log("Error @inv: ", err));
   }
 
   const handleResData = (seats, index, cid) => {
@@ -760,31 +941,49 @@ const FlightResultsScreen = ({ navigation }) => {
   return (
     <View style={_styles.styles.containerFlightScreen}>
 
-      <Text style={{ color: "blue", fontSize: 16, marginTop:10, marginBottom: 10 }}>
-        Flights for {mBackend.getSearchDep()} -{'>'} {mBackend.getSearchArr()} 
+      <Text style={{ 
+        color: "white", 
+        fontFamily: "ComicNeue_700Bold",
+        fontSize: 22, 
+        marginTop:15, 
+        marginBottom: 10 }}>
+        Flight Search: {getAirports().pickedDep} -{'>'} {getAirports().pickedArr} 
       </Text>
 
-      <View style={{ maxHeight:30, width: 400 , flex: 1, flexDirection: "row", 
-                                 borderColor: "blue", borderWidth: 1, borderRadius: 2, alignItems: "center"}}>
-                                
-        <Text style={{ marginLeft: 10, fontStyle: "italic"}}> FLIGHT </Text>
-        <Text style={{ marginLeft: 15, marginRight: 2, fontStyle: "italic"}}> DEP TIME </Text>
-        <Text style={{ marginLeft: 20, marginRight: 2, fontStyle: "italic"}}> ARR TIME </Text>
-        <Text style={{ marginLeft: 10, fontStyle: "italic"}}> DURATION </Text>
-        <Text style={{ marginLeft: 20, fontStyle: "italic"}}> PRICE </Text>
-      </View>
       {array.map((arr, key) => (
-      <TouchableOpacity key={arr}
-                        style={{ maxHeight:60, width: 400 , flex: 1, flexDirection: "row", 
-                                 borderColor: "blue", borderWidth: 1, borderRadius: 2, alignItems: "center"}}
-                        onPress={() => {searchInventory(arr)}}>
+      <TouchableOpacity 
+        key={arr}
+        style={{ 
+          backgroundColor: "white",
+          maxHeight:80, 
+          width: 400, 
+          flex: 1, 
+          flexDirection: "row", 
+          margin: 10,
+          borderRadius: 40, 
+          alignItems: "center"}}
+        onPress={() => {searchInventory(arr)}}>
 
-          <Text style={{ margin: 10, width:60, textAlign: "center"}}>{ mBackend.getSearchFlightNumber(arr)}   </Text>
-          <Text style={{ width:60, margin: 10, textAlign: "center"}}>{ mBackend.getSearchDepTime(arr) }h  </Text>
-          <Text style={{ width: 60, margin: 10, textAlign: "center"}}>{ mBackend.getSearchArrTime(arr) }h  </Text>
-          <Text style={{ width: 60, margin: 10, textAlign: "center"}}>{ mBackend.getSearchFlightTime(arr) }</Text>
-          <Text style={{ width: 60, margin: 10, textAlign: "center"}}>{ mBackend.getSearchPrice(arr) } FLY</Text>
-        
+        <Text style={{ 
+          color: materialcolors[2],
+          fontFamily: "ComicNeue_700Bold",
+          margin: 10, 
+          textAlign: "center"}}>{ mBackend.getSearchFlightNumber(arr)}</Text>
+        <View style={{
+          flex: 1,
+          flexDirection: "column"
+        }}>
+          <Text style={_styles.styles.flightResText}>Dep { mBackend.getSearchDepTime(arr) }h  </Text>
+          <Text style={_styles.styles.flightResText}>Arr { mBackend.getSearchArrTime(arr) }h  </Text>
+        </View>
+        <View style={{flex: 1, flexDirection: "column"}}>
+          <Text style={{ 
+            margin: 10, 
+            textAlign: "center", 
+            fontFamily: "ComicNeue_700Bold",
+            fontSize: 20}}>{ mBackend.getSearchPrice(arr) } FLY</Text>
+          <Text style={_styles.styles.flightResText}>{ mBackend.getSearchFlightTime(arr) }</Text>
+        </View>
       </TouchableOpacity>
       ))}
     </View>
@@ -800,6 +999,18 @@ const BookingScreen = ({ navigation }) => {
   const [ name, setName ] = useState("");
   const [ surname, setSurname ] = useState("");
   const [ birthDate, setBirthDate ] = useState("");
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity 
+          style={{marginRight: 20}}
+          onPress={() => navigation.navigate('FLY Portal')}>
+          <Entypo name="home" size={24} color="white" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   const getData = async () => {
     var data = await getJSON(mBackend.getBookingCID());
@@ -819,8 +1030,8 @@ const BookingScreen = ({ navigation }) => {
     // create json and send to ipfs to later get the ticket details at ticket portal
     const cid = setJSON({
       "flightNumber": mBackend.getSearchFlightNumber(ind),
-      "from": state.pickedDep,
-      "to": state.pickedArr,
+      "from": getAirports().pickedDep,
+      "to": getAirports().pickedArr,
       "name": name,
       "surname": surname,
       "birthDate": birthDate,
@@ -828,25 +1039,35 @@ const BookingScreen = ({ navigation }) => {
       "departureTime": mBackend.getSearchDepTime(ind),
       "arrivalTime": mBackend.getSearchArrTime(ind),
       "price": mBackend.getSearchPrice(ind),
-      "taxes": 0.3
+      "taxes": 0.3 // experimental value to refund taxes if passenger couldn't meet the booking
     });
 
     // create the ticket with all informations
-    funcContracts.getPssInstance().createTicket(
-                cid,
-                mBackend.getSearchFlightNumber(ind),
-                mBackend.getDate().month,
-                mBackend.getDate().day,
-                price).then(res => {if(res) {
-                                      payTicket();
-                                      console.log("Ticket created: ", res);
-                                      alert("Flight is booked. Check your ticket portal for details");}})
-                      .catch(err => {console.log("Err create ticket: ", err); alert("Flight couldn't be booked")});
+    funcContracts.getPssInstance()
+      .createTicket(
+        cid,
+        mBackend.getSearchFlightNumber(ind),
+        mBackend.getDate().month,
+        mBackend.getDate().day,
+        price)
+      .then(res => {
+        if(res) {
+          payTicket();
+          console.log("Ticket created: ", res);
+          alert("Flight is booked. Check your ticket portal for details");
+        }
+      })
+      .catch(err => {
+        console.log("Err create ticket: ", err); 
+        alert("Flight couldn't be booked")
+      });
 
     // pay the ticket
     const payTicket = async () => {
-      await funcContracts.getFlightToken().transfer(airLineAddress, price)
-        .then(res => {console.log("Ticket is paid: ", res);
+      await funcContracts.getFlightToken()
+        .transfer(vars.airLineAddress, price)
+        .then(res => {
+          console.log("Ticket is paid: ", res);
           const timeNow = Date.now();
           insertPayment(price, timeNow);
       })
@@ -854,25 +1075,35 @@ const BookingScreen = ({ navigation }) => {
 
     // insert Payment into Payments
     const insertPayment = async (amount, timestamp) => {
-      await funcContracts.getFlightToken().insertPayment(amount.toString(), airLineAddress, timestamp.toString())
+      await funcContracts.getFlightToken()
+        .insertPayment(
+          amount.toString(), 
+          vars.airLineAddress, 
+          timestamp.toString())
         .then(res => {
           console.log("Payment inserted ", res);
-
           navigation.navigate("Book a flight"); // if payment is done - book the flight
         })
     }
   }
 
   return (
-    <ScrollView>
+    <ScrollView style={{backgroundColor: materialcolors[0]}}>
     <View style={_styles.styles.containerFlightScreen}>
-      <View style={{ width: 400, height: 200, backgroundColor: "white", borderColor: "blue", borderWidth: 2, margin: 10 }}>
-        <Text style={{ fontWeight: "bold", color: "blue", margin: 5, paddingLeft: 50}}>FLIGHT {mBackend.getSearchFlightNumber(ind)}</Text>
-        <Text style={{ fontWeight: "bold", color: "blue", margin: 5, paddingLeft: 50}}>From {state.pickedDep} to {state.pickedArr}</Text>
-        <Text style={{ fontWeight: "bold", color: "blue", margin: 5, paddingLeft: 50}}>Date: {mBackend.getDate().dateString}</Text>
-        <Text style={{ fontWeight: "bold", color: "blue", margin: 5, paddingLeft: 50}}>Departure: {mBackend.getSearchDepTime(ind)}</Text>
-        <Text style={{ fontWeight: "bold", color: "blue", margin: 5, paddingLeft: 50}}>Arrival: {mBackend.getSearchArrTime(ind)}</Text>
-        <Text style={{ fontWeight: "bold", color: "blue", margin: 5, paddingLeft: 50}}>Price is {price} FLY</Text>
+      <View style={{ 
+        width: 400, 
+        height: 200, 
+        backgroundColor: "white", 
+        borderRadius: 40,
+        borderColor: materialcolors[3], 
+        borderWidth: 2, 
+        marginTop: 20 }}>
+        <Text style={_styles.styles.flightBookingInfoText}>FLIGHT {mBackend.getSearchFlightNumber(ind)}</Text>
+        <Text style={_styles.styles.flightBookingInfoText}>From {getAirports().pickedDep} to {getAirports().pickedArr}</Text>
+        <Text style={_styles.styles.flightBookingInfoText}>Date: {mBackend.getDate().dateString}</Text>
+        <Text style={_styles.styles.flightBookingInfoText}>Departure: {mBackend.getSearchDepTime(ind)}</Text>
+        <Text style={_styles.styles.flightBookingInfoText}>Arrival: {mBackend.getSearchArrTime(ind)}</Text>
+        <Text style={_styles.styles.flightBookingInfoText}>Price is {price} FLY</Text>
       </View>
 
       <Text style={_styles.styles.searchLabelText}>Name</Text>
@@ -885,7 +1116,12 @@ const BookingScreen = ({ navigation }) => {
       <TextInput style={_styles.styles.textInputBox} placeholder="dd.mm.yyyy" onChangeText={ (value) => { setBirthDate(value) }}/>     
   
       <TouchableOpacity
-            style={{width: 300, height:40, margin:10, backgroundColor: '#000F64'}}
+            style={{
+              borderRadius: 45,
+              width: 300, 
+              height:40, 
+              marginTop:20, 
+              backgroundColor: materialcolors[2]}}
             onPress={() => {console.log("Pressed"); payAndBook();}}>
             <Text style={{color:"#fff", fontSize: 18, textAlign: "center", margin: 10}}>Pay and Book flight</Text> 
         </TouchableOpacity>
@@ -894,32 +1130,20 @@ const BookingScreen = ({ navigation }) => {
   );
 }
 
-
-// navigation this component includes all screens inside a stack necess. for booking a flight
-const BookingScreens = () => {
-  return (
-      <StackBooking.Navigator initialRouteName="Book a flight">
-        <StackBooking.Screen name="Book a flight" component={BookAFlightScreen} options={{ headerShown: false}}/>
-        <StackBooking.Screen name="Flight Results" component={FlightResultsScreen} options={{ headerShown: true}}/>
-        <StackBooking.Screen name="Booking Page" component={BookingScreen} options={{ headerShown: true}}/>
-      </StackBooking.Navigator>
-  )
-}
-
-
-// navigation this comp. includes all screens for administrating all booked tickets
-const TicketDetails = () => {
-  return (
-    <StackTickets.Navigator initialRouteName="My Flies">
-      <StackTickets.Screen name="My Flies" component={TicketPortalScreen} options={{ headerShown: false}}/>
-      <StackTickets.Screen name="Ticket Details" component={DetailsScreeen} options={{ headerShown: true}}/>
-    </StackTickets.Navigator>
-  )
-}
-
-
 // screen to look for all balances and the current token amount
-const TokenPortal = () => {
+const TokenPortal = ({ navigation }) => {
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity 
+          style={{marginRight: 20}}
+          onPress={() => navigation.navigate('FLY Portal')}>
+          <Entypo name="home" size={24} color="white" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   const [ claimDialog, setClaimDialog ] = useState(false);
 
@@ -955,7 +1179,7 @@ const TokenPortal = () => {
   return (
     <ScrollView style={{marginTop: 40}}>
           <View style={_styles.styles.containerFlightScreen}>
-              <Text style={{ fontSize: 16, color: "blue"}}>Balance: {state.tokens} FLY</Text>
+              <Text style={{ fontSize: 16, color: "blue"}}>Balance: {vars.tokens} FLY</Text>
               <SafeAreaView style={{width: 400, height: 400}}>
                 <FlatList
                   data={dataToDisplayAsList}
@@ -989,7 +1213,7 @@ const TokenPortal = () => {
 
 
 // main starting point
-const App = () => {
+const App = ({ navigation }) => {
 
   // back button handler
   useEffect(() => {
@@ -1007,36 +1231,67 @@ const App = () => {
 
   return (
     <NavigationContainer>
-      <Tab.Navigator initialRouteName="FLY Portal">
-      <Tab.Screen name="FLY Portal" component={MainMenuScreen}
-        options={{
-          tabBarLabel: "Home",
-          tabBarIcon: () => ( 
-            <Entypo name="home" size={24} color="white" />
-          ),
-        }}/>
-      <Tab.Screen name="Book and fly" component={BookingScreens}
-        options={{
-          tabBarLabel: "Book flight",
-          tabBarIcon: () => (
-            <FontAwesome5 name="plane-departure" size={17} color="white"/>
-          ),
-        }}/>
-      <Tab.Screen name="My Flights" component={TicketDetails} 
-        options={{
-          tabBarLabel: "My Flights",
-          tabBarIcon: () => (
-            <Ionicons name="md-person" size={20} color="white"/>
-          ),
-        }}/>
-      <Tab.Screen name="Token Portal" component={TokenPortal} 
-        options={{
-          tabBarLabel: "Token Portal",
-          tabBarIcon: () => (
-            <MaterialCommunityIcons name="coin" size={25} color="white" />
-          ),
-        }}/>
-    </Tab.Navigator>
+      <Stack.Navigator initialRouteName="FLY Portal">
+        <Stack.Screen name="FLY Portal" component={MainMenuScreen}
+          options={{
+            headerShown: false
+          }}/>
+        <Stack.Screen 
+          name="Book and fly" component={BookAFlightScreen} 
+          options= {{
+            headerStyle: {
+              backgroundColor: materialcolors[2]
+            }, 
+            headerTitleStyle: {
+              color: materialcolors[7]
+            }
+          }}/>
+        <Stack.Screen name="Flight Results" component={FlightResultsScreen} 
+          options={{
+            headerStyle: {
+              backgroundColor: materialcolors[2]
+            }, 
+            headerTitleStyle: {
+              color: materialcolors[7]
+            }
+          }}/>
+        <Stack.Screen name="Booking Page" component={BookingScreen} 
+          options={{
+            headerStyle: {
+              backgroundColor: materialcolors[2]
+            }, 
+            headerTitleStyle: {
+              color: materialcolors[7]
+            }
+          }}/>
+        <Stack.Screen name="My Flights" component={TicketPortalScreen} 
+          options={{
+            headerStyle: {
+              backgroundColor: materialcolors[2]
+            }, 
+            headerTitleStyle: {
+              color: materialcolors[7]
+            }
+          }}/>
+        <Stack.Screen name="Ticket Details" component={DetailsScreeen} 
+          options={{
+            headerStyle: {
+              backgroundColor: materialcolors[2]
+            }, 
+            headerTitleStyle: {
+              color: materialcolors[7]
+            }
+          }}/>
+        <Stack.Screen name="Token Portal" component={TokenPortal} 
+          options={{
+            headerStyle: {
+              backgroundColor: materialcolors[2]
+            }, 
+            headerTitleStyle: {
+              color: materialcolors[7]
+            }
+          }}/>
+      </Stack.Navigator>
     </NavigationContainer>
   );
 };
